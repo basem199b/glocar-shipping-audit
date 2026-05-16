@@ -26,7 +26,7 @@ const initialInvoices = [
 
 const sampleShipments = [
   { carrier: 'أرامكس', waybill: '341997001', source: 'سلة', order: 'ORD-1001', amount: 18, status: 'مفوترة' },
-  { carrier: 'أرامكس', waybill: '341997002', source: 'سلة', order: 'ORD-1002', amount: 0, status: 'غير مفوترة' },
+  { carrier: 'أرامكس', waybill: '341997002', source: 'سلة', order: 'ORD-1002', amount: 20, status: 'غير مفوترة' },
   { carrier: 'أرامكس', waybill: '341997003', source: 'الفاتورة', order: 'غير مطابق', amount: 22, status: 'مفوترة' },
   { carrier: 'DHL', waybill: 'DHL-7781', source: 'سلة', order: 'ORD-1008', amount: 35, status: 'غير مفوترة' },
   { carrier: 'سمسا', waybill: 'SMSA-4491', source: 'الفاتورة', order: 'ORD-1012', amount: 19, status: 'مفوترة' },
@@ -54,10 +54,7 @@ export default function HomePage() {
     <main style={{ minHeight: '100vh', background: '#f4f6fb', direction: 'rtl', fontFamily: 'Arial', display: 'flex' }}>
       <aside style={{ ...sidebarStyle, width: sidebarOpen ? 260 : 64 }}>
         <div style={{ display: 'grid', placeItems: sidebarOpen ? 'stretch' : 'center', gap: 14, marginBottom: 28 }}>
-          <div style={brandWrap}>
-            <div style={logoCircle}>G</div>
-            {sidebarOpen && <div><h1 style={brandTitle}>GLO CAR</h1><p style={brandSub}>تدقيق فواتير الشحن</p></div>}
-          </div>
+          <div style={brandWrap}><div style={logoCircle}>G</div>{sidebarOpen && <div><h1 style={brandTitle}>GLO CAR</h1><p style={brandSub}>تدقيق فواتير الشحن</p></div>}</div>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} style={collapseButton}>{sidebarOpen ? '×' : '☰'}</button>
         </div>
         <nav style={{ display: 'grid', gap: 12 }}>{menuItems.map((item) => <button key={item.id} onClick={() => setActiveMenu(item.id)} title={item.label} style={{ ...navButton, ...(sidebarOpen ? navButtonOpen : navButtonClosed), ...(activeMenu === item.id ? activeButton : {}) }}><span>{item.icon}</span>{sidebarOpen && <span>{item.label}</span>}</button>)}</nav>
@@ -67,7 +64,7 @@ export default function HomePage() {
         {activeMenu === 'invoice' && <InvoicePage pdfFile={pdfFile} setPdfFile={setPdfFile} selectedCarrier={selectedCarrier} setSelectedCarrier={setSelectedCarrier} carriers={carrierNames} />}
         {activeMenu === 'carrier' && <CarrierManagementPage newCarrierName={newCarrierName} setNewCarrierName={setNewCarrierName} addCarrier={addCarrier} carriers={carriers} deletedCarriers={deletedCarriers} deleteCarrier={deleteCarrier} restoreCarrier={restoreCarrier} />}
         {activeMenu === 'companies' && <CarrierReportsPage carriers={carriers} invoices={invoices} attachReceipt={attachReceipt} deleteReceipt={deleteReceipt} />}
-        {activeMenu === 'reports' && <ReportsPage />}
+        {activeMenu === 'reports' && <ReportsPage carriers={carriers} invoices={invoices} />}
       </section>
     </main>
   )
@@ -76,9 +73,45 @@ export default function HomePage() {
 function PageHeader({ title, desc }: { title: string; desc: string }) { return <header style={{ marginBottom: 24 }}><h2 style={{ margin: 0, fontSize: 34 }}>{title}</h2><p style={{ color: '#667085', marginTop: 8 }}>{desc}</p></header> }
 function openAttachment(fileName: string) { if (!fileName) return; alert(`معاينة الملف: ${fileName}\n\nفي النسخة القادمة سيتم فتح الملف الفعلي من التخزين بعد ربط قاعدة البيانات والملفات.`) }
 
-function ReportsPage() {
-  return <><PageHeader title="التقارير" desc="ملخص عام لأداء الشحن والفواتير والسداد." /><div style={miniGrid}><div style={cardStyle}><h3 style={titleStyle}>إجمالي الفواتير</h3><strong style={bigNumber}>4</strong></div><div style={cardStyle}><h3 style={titleStyle}>الفواتير المسددة</h3><strong style={bigNumber}>2</strong></div><div style={cardStyle}><h3 style={titleStyle}>غير المسدد</h3><strong style={bigNumber}>2</strong></div><div style={cardStyle}><h3 style={titleStyle}>إجمالي مبالغ الفواتير</h3><strong style={bigNumber}>6,785 ر.س</strong></div></div></>
+function ReportsPage({ carriers, invoices }: { carriers: typeof initialCarriers; invoices: typeof initialInvoices }) {
+  const rows = carriers.map((carrier) => {
+    const carrierInvoices = invoices.filter((invoice) => invoice.carrier === carrier.name)
+    const sallaShipments = sampleShipments.filter((shipment) => shipment.carrier === carrier.name && shipment.source === 'سلة')
+    const invoiceShipments = sampleShipments.filter((shipment) => shipment.carrier === carrier.name && shipment.source === 'الفاتورة')
+    const invoiceAmount = carrierInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+    const sallaAmount = sallaShipments.reduce((sum, shipment) => sum + shipment.amount, 0)
+    const difference = sallaAmount - invoiceAmount
+    return {
+      carrier: carrier.name,
+      invoiceCount: carrierInvoices.length,
+      invoiceAmount,
+      sallaAmount,
+      invoiceWaybills: invoiceShipments.length,
+      sallaWaybills: sallaShipments.length,
+      difference,
+    }
+  })
+
+  return <><PageHeader title="التقارير" desc="تقرير مستقل لكل شركة يوضح الفواتير، مبالغ سلة، عدد البوالص، والفرق بين سلة والفواتير الصادرة." />
+    <div style={{ display: 'grid', gap: 18 }}>
+      {rows.map((row) => <div key={row.carrier} style={cardStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+          <h3 style={{ ...titleStyle, margin: 0 }}>{row.carrier}</h3>
+          <span style={row.difference >= 0 ? greenBadge : redBadge}>فرق المبلغ: {row.difference} ر.س</span>
+        </div>
+        <div style={reportGrid}>
+          <ReportMetric label="الفواتير الصادرة" value={`${row.invoiceCount}`} />
+          <ReportMetric label="إجمالي مبالغ سلة" value={`${row.sallaAmount} ر.س`} />
+          <ReportMetric label="إجمالي عدد بوليصات الفواتير" value={`${row.invoiceWaybills}`} />
+          <ReportMetric label="إجمالي عدد بوليصات سلة" value={`${row.sallaWaybills}`} />
+          <ReportMetric label="إجمالي مبالغ الفواتير الصادرة" value={`${row.invoiceAmount} ر.س`} />
+        </div>
+      </div>)}
+    </div>
+  </>
 }
+
+function ReportMetric({ label, value }: { label: string; value: string }) { return <div style={reportMetric}><p style={{ margin: 0, color: '#667085' }}>{label}</p><strong style={{ display: 'block', marginTop: 8, fontSize: 24 }}>{value}</strong></div> }
 
 function SallaPage({ excelFile, setExcelFile, carriers }: { excelFile: string; setExcelFile: (v: string) => void; carriers: string[] }) {
   const grouped = carriers.map((carrier) => ({ carrier, count: sampleShipments.filter((s) => s.carrier === carrier && s.source === 'سلة').length }))
@@ -120,11 +153,13 @@ const tabButton: CSSProperties = { background: '#f8fafc', color: '#142143', bord
 const activeTabButton: CSSProperties = { background: '#d8d0bd', borderColor: '#d8d0bd' }
 const greenBadge: CSSProperties = { background: '#dcfce7', color: '#027a48', borderRadius: 999, padding: '7px 12px', fontWeight: 800 }
 const yellowBadge: CSSProperties = { background: '#fef3c7', color: '#92400e', borderRadius: 999, padding: '7px 12px', fontWeight: 800 }
+const redBadge: CSSProperties = { background: '#fee2e2', color: '#b42318', borderRadius: 999, padding: '7px 12px', fontWeight: 800 }
 const successBox: CSSProperties = { background: '#ecfdf3', color: '#027a48', padding: 12, borderRadius: 12, fontWeight: 700, marginTop: 12 }
 const noteStyle: CSSProperties = { color: '#344054', lineHeight: 1.9, background: '#f8fafc', padding: 14, borderRadius: 14, marginTop: 14 }
 const miniGrid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginTop: 14 }
 const miniCard: CSSProperties = { background: '#eef2f7', borderRadius: 14, padding: 14, display: 'grid', gap: 6 }
-const bigNumber: CSSProperties = { display: 'block', marginTop: 12, fontSize: 34 }
+const reportGrid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }
+const reportMetric: CSSProperties = { background: '#f8fafc', border: '1px solid #eef2f7', borderRadius: 16, padding: 16 }
 const descStyle: CSSProperties = { color: '#667085', lineHeight: 1.9 }
 const titleStyle: CSSProperties = { marginTop: 0, fontSize: 28 }
 const inputStyle: CSSProperties = { width: '100%', padding: 15, borderRadius: 14, border: '1px solid #d0d5dd', fontWeight: 700, boxSizing: 'border-box' }
