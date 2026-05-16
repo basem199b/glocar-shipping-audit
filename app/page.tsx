@@ -7,14 +7,12 @@ const menuItems = [
   { id: 'salla', label: 'رفع بيانات سلة', icon: '📤' },
   { id: 'invoice', label: 'رفع فاتورة جديدة', icon: '📄' },
   { id: 'carrier', label: 'إضافة شركة شحن', icon: '➕' },
-  { id: 'companies', label: 'شركات الشحن', icon: '🚚' },
 ]
 
-const carriers = ['أرامكس', 'DHL', 'سمسا', 'ناقل', 'سبل']
-const companyRows = [
-  { name: 'أرامكس', invoices: 12, status: 'نشطة' },
-  { name: 'DHL', invoices: 4, status: 'نشطة' },
-  { name: 'سمسا', invoices: 7, status: 'نشطة' },
+const initialCarriers = [
+  { id: 1, name: 'أرامكس', invoices: 12, status: 'نشطة' },
+  { id: 2, name: 'DHL', invoices: 4, status: 'نشطة' },
+  { id: 3, name: 'سمسا', invoices: 7, status: 'نشطة' },
 ]
 
 export default function HomePage() {
@@ -24,6 +22,30 @@ export default function HomePage() {
   const [excelFile, setExcelFile] = useState('')
   const [pdfFile, setPdfFile] = useState('')
   const [newCarrierName, setNewCarrierName] = useState('')
+  const [carriers, setCarriers] = useState(initialCarriers)
+  const [deletedCarriers, setDeletedCarriers] = useState<typeof initialCarriers>([])
+
+  const addCarrier = () => {
+    if (!newCarrierName.trim()) return
+    setCarriers([...carriers, { id: Date.now(), name: newCarrierName.trim(), invoices: 0, status: 'نشطة' }])
+    setNewCarrierName('')
+  }
+
+  const deleteCarrier = (id: number) => {
+    const carrier = carriers.find((item) => item.id === id)
+    if (!carrier) return
+    setCarriers(carriers.filter((item) => item.id !== id))
+    setDeletedCarriers([{ ...carrier, status: 'محذوفة' }, ...deletedCarriers])
+  }
+
+  const restoreCarrier = (id: number) => {
+    const carrier = deletedCarriers.find((item) => item.id === id)
+    if (!carrier) return
+    setDeletedCarriers(deletedCarriers.filter((item) => item.id !== id))
+    setCarriers([{ ...carrier, status: 'نشطة' }, ...carriers])
+  }
+
+  const carrierNames = carriers.map((carrier) => carrier.name)
 
   return (
     <main style={{ minHeight: '100vh', background: '#f4f6fb', direction: 'rtl', fontFamily: 'Arial', display: 'flex' }}>
@@ -45,9 +67,8 @@ export default function HomePage() {
 
       <section style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
         {activeMenu === 'salla' && <SallaPage excelFile={excelFile} setExcelFile={setExcelFile} />}
-        {activeMenu === 'invoice' && <InvoicePage pdfFile={pdfFile} setPdfFile={setPdfFile} selectedCarrier={selectedCarrier} setSelectedCarrier={setSelectedCarrier} />}
-        {activeMenu === 'carrier' && <AddCarrierPage newCarrierName={newCarrierName} setNewCarrierName={setNewCarrierName} />}
-        {activeMenu === 'companies' && <CompaniesPage />}
+        {activeMenu === 'invoice' && <InvoicePage pdfFile={pdfFile} setPdfFile={setPdfFile} selectedCarrier={selectedCarrier} setSelectedCarrier={setSelectedCarrier} carriers={carrierNames} />}
+        {activeMenu === 'carrier' && <CarrierManagementPage newCarrierName={newCarrierName} setNewCarrierName={setNewCarrierName} addCarrier={addCarrier} carriers={carriers} deletedCarriers={deletedCarriers} deleteCarrier={deleteCarrier} restoreCarrier={restoreCarrier} />}
       </section>
     </main>
   )
@@ -77,7 +98,7 @@ function SallaPage({ excelFile, setExcelFile }: { excelFile: string; setExcelFil
   )
 }
 
-function InvoicePage({ pdfFile, setPdfFile, selectedCarrier, setSelectedCarrier }: { pdfFile: string; setPdfFile: (v: string) => void; selectedCarrier: string; setSelectedCarrier: (v: string) => void }) {
+function InvoicePage({ pdfFile, setPdfFile, selectedCarrier, setSelectedCarrier, carriers }: { pdfFile: string; setPdfFile: (v: string) => void; selectedCarrier: string; setSelectedCarrier: (v: string) => void; carriers: string[] }) {
   return (
     <>
       <PageHeader title="رفع فاتورة جديدة" desc="ارفع PDF الفاتورة ثم اختر شركة الشحن قبل الحفظ حتى تُدرج الفاتورة داخل سجل الشركة نفسها." />
@@ -97,28 +118,33 @@ function InvoicePage({ pdfFile, setPdfFile, selectedCarrier, setSelectedCarrier 
   )
 }
 
-function AddCarrierPage({ newCarrierName, setNewCarrierName }: { newCarrierName: string; setNewCarrierName: (v: string) => void }) {
+function CarrierManagementPage({ newCarrierName, setNewCarrierName, addCarrier, carriers, deletedCarriers, deleteCarrier, restoreCarrier }: { newCarrierName: string; setNewCarrierName: (v: string) => void; addCarrier: () => void; carriers: typeof initialCarriers; deletedCarriers: typeof initialCarriers; deleteCarrier: (id: number) => void; restoreCarrier: (id: number) => void }) {
   return (
     <>
-      <PageHeader title="إضافة شركة شحن" desc="أضف شركة شحن جديدة حتى تظهر في خيارات رفع الفواتير والمطابقة." />
+      <PageHeader title="إضافة شركة شحن" desc="أضف شركة شحن جديدة، واستعرض الشركات الحالية، واحذف أو استرجع الشركات من سجل المحذوفات." />
       <div style={cardStyle}>
-        <h3 style={titleStyle}>بيانات الشركة</h3>
+        <h3 style={titleStyle}>إضافة شركة شحن</h3>
         <input value={newCarrierName} onChange={(e) => setNewCarrierName(e.target.value)} placeholder="مثال: أرامكس" style={inputStyle} />
-        <button disabled={!newCarrierName} onClick={() => alert(`تمت إضافة شركة: ${newCarrierName}`)} style={{ ...saveButton, marginTop: 14, opacity: newCarrierName ? 1 : .5 }}>حفظ شركة الشحن</button>
+        <button disabled={!newCarrierName.trim()} onClick={addCarrier} style={{ ...saveButton, marginTop: 14, opacity: newCarrierName.trim() ? 1 : .5 }}>حفظ شركة الشحن</button>
       </div>
-    </>
-  )
-}
 
-function CompaniesPage() {
-  return (
-    <>
-      <PageHeader title="شركات الشحن" desc="عرض شركات الشحن المسجلة وعدد الفواتير المرتبطة بكل شركة." />
       <div style={cardStyle}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
-          <thead><tr style={{ background: '#eef2f7' }}><th style={th}>شركة الشحن</th><th style={th}>عدد الفواتير</th><th style={th}>الحالة</th></tr></thead>
-          <tbody>{companyRows.map((row) => <tr key={row.name} style={{ borderBottom: '1px solid #edf0f5' }}><td style={td}>{row.name}</td><td style={td}>{row.invoices}</td><td style={td}>{row.status}</td></tr>)}</tbody>
+        <h3 style={titleStyle}>شركات الشحن</h3>
+        <p style={descStyle}>عند حذف شركة شحن يتم حذف ربطها من القواعد والاختيارات الحالية، ويمكن استرجاعها لاحقًا من سجل المحذوفات.</p>
+        <table style={tableStyle}>
+          <thead><tr style={{ background: '#eef2f7' }}><th style={th}>شركة الشحن</th><th style={th}>عدد الفواتير</th><th style={th}>الحالة</th><th style={th}>إجراء</th></tr></thead>
+          <tbody>{carriers.map((row) => <tr key={row.id} style={{ borderBottom: '1px solid #edf0f5' }}><td style={td}>{row.name}</td><td style={td}>{row.invoices}</td><td style={td}>{row.status}</td><td style={td}><button onClick={() => deleteCarrier(row.id)} style={dangerButton}>حذف</button></td></tr>)}</tbody>
         </table>
+      </div>
+
+      <div style={cardStyle}>
+        <h3 style={titleStyle}>سجل المحذوفات والاسترجاع</h3>
+        {deletedCarriers.length === 0 ? <p style={descStyle}>لا توجد شركات محذوفة حاليًا.</p> : (
+          <table style={tableStyle}>
+            <thead><tr style={{ background: '#eef2f7' }}><th style={th}>شركة الشحن</th><th style={th}>الحالة</th><th style={th}>إجراء</th></tr></thead>
+            <tbody>{deletedCarriers.map((row) => <tr key={row.id} style={{ borderBottom: '1px solid #edf0f5' }}><td style={td}>{row.name}</td><td style={td}>{row.status}</td><td style={td}><button onClick={() => restoreCarrier(row.id)} style={restoreButton}>استرجاع</button></td></tr>)}</tbody>
+          </table>
+        )}
       </div>
     </>
   )
@@ -142,9 +168,12 @@ const cardStyle: CSSProperties = { background: 'white', borderRadius: 20, paddin
 const uploadButton: CSSProperties = { display: 'block', width: '100%', background: '#142143', color: 'white', borderRadius: 14, padding: '16px', fontWeight: 700, textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }
 const selectStyle: CSSProperties = { width: '100%', padding: '15px', borderRadius: 14, border: '1px solid #d0d5dd', background: '#f8fafc', fontWeight: 700 }
 const saveButton: CSSProperties = { width: '100%', background: '#d8d0bd', color: '#142143', border: 0, borderRadius: 14, padding: '16px', fontWeight: 700 }
+const dangerButton: CSSProperties = { background: '#fee2e2', color: '#b42318', border: 0, borderRadius: 10, padding: '10px 14px', fontWeight: 700, cursor: 'pointer' }
+const restoreButton: CSSProperties = { background: '#dcfce7', color: '#027a48', border: 0, borderRadius: 10, padding: '10px 14px', fontWeight: 700, cursor: 'pointer' }
 const successBox: CSSProperties = { background: '#ecfdf3', color: '#027a48', padding: 12, borderRadius: 12, fontWeight: 700, marginTop: 12 }
 const descStyle: CSSProperties = { color: '#667085', lineHeight: 1.9 }
 const titleStyle: CSSProperties = { marginTop: 0, fontSize: 28 }
 const inputStyle: CSSProperties = { width: '100%', padding: 15, borderRadius: 14, border: '1px solid #d0d5dd', fontWeight: 700, boxSizing: 'border-box' }
+const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', textAlign: 'right' }
 const th: CSSProperties = { padding: 14 }
 const td: CSSProperties = { padding: 14, color: '#344054' }
