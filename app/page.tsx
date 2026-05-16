@@ -1,5 +1,6 @@
 "use client"
 
+import type { CSSProperties } from 'react'
 import { useState } from 'react'
 
 const menuItems = [
@@ -146,7 +147,7 @@ export default function HomePage() {
   )
 }
 
-const sidebarStyle = {
+const sidebarStyle: CSSProperties = {
   width: 260,
   background: '#142143',
   color: 'white',
@@ -155,11 +156,11 @@ const sidebarStyle = {
   transition: '.3s',
 }
 
-const sidebarMobileOpen = {
+const sidebarMobileOpen: CSSProperties = {
   transform: 'translateX(0)',
 }
 
-const menuButton = {
+const menuButton: CSSProperties = {
   position: 'fixed',
   top: 14,
   right: 14,
@@ -173,7 +174,7 @@ const menuButton = {
   cursor: 'pointer',
 }
 
-const navButton = {
+const navButton: CSSProperties = {
   width: '100%',
   border: 0,
   background: 'transparent',
@@ -187,19 +188,19 @@ const navButton = {
   cursor: 'pointer',
 }
 
-const activeButton = {
+const activeButton: CSSProperties = {
   background: '#d8d0bd',
   color: '#142143',
 }
 
-const cardStyle = {
+const cardStyle: CSSProperties = {
   background: 'white',
   borderRadius: 20,
   padding: 24,
   boxShadow: '0 10px 30px rgba(20,33,67,.08)',
 }
 
-const primaryButton = {
+const primaryButton: CSSProperties = {
   background: '#142143',
   color: 'white',
   border: 0,
@@ -208,7 +209,7 @@ const primaryButton = {
   fontWeight: 700,
 }
 
-const uploadButton = {
+const uploadButton: CSSProperties = {
   width: '100%',
   background: '#142143',
   color: 'white',
@@ -220,7 +221,7 @@ const uploadButton = {
   cursor: 'pointer',
 }
 
-const selectStyle = {
+const selectStyle: CSSProperties = {
   width: '100%',
   padding: '15px',
   borderRadius: 14,
@@ -229,7 +230,7 @@ const selectStyle = {
   fontWeight: 700,
 }
 
-const saveButton = {
+const saveButton: CSSProperties = {
   width: '100%',
   background: '#d8d0bd',
   color: '#142143',
@@ -239,7 +240,7 @@ const saveButton = {
   fontWeight: 700,
 }
 
-const successBox = {
+const successBox: CSSProperties = {
   background: '#ecfdf3',
   color: '#027a48',
   padding: 12,
@@ -247,7 +248,7 @@ const successBox = {
   fontWeight: 700,
 }
 
-const desc = {
+const desc: CSSProperties = {
   color: '#667085',
   lineHeight: 1.9,
 }
