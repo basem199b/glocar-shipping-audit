@@ -1,8 +1,11 @@
 const menuItems = [
   { label: 'رفع بيانات سلة', icon: '📤', active: true },
+  { label: 'رفع فاتورة جديدة', icon: '📄', active: false },
   { label: 'إضافة شركة شحن', icon: '➕', active: false },
   { label: 'شركات الشحن', icon: '🚚', active: false },
 ]
+
+const carriers = ['أرامكس', 'DHL', 'سمسا', 'ناقل', 'سبل']
 
 const stats = [
   { label: 'إجمالي المحصل من العملاء', value: '134 ر.س' },
@@ -44,7 +47,7 @@ export default function HomePage() {
             <h2 style={{ margin: 0, fontSize: 30 }}>رفع بيانات سلة</h2>
             <p style={{ margin: '8px 0 0', color: '#667085' }}>استيراد شحنات سلة ثم مطابقتها مع فواتير شركات الشحن.</p>
           </div>
-          <button style={primaryButton}>+ فاتورة شحن جديدة</button>
+          <button style={primaryButton}>+ رفع فاتورة جديدة</button>
         </header>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16, marginBottom: 20 }}>
@@ -64,9 +67,19 @@ export default function HomePage() {
           </div>
 
           <div style={cardStyle}>
-            <h3 style={{ marginTop: 0, fontSize: 24 }}>رفع فاتورة شركة الشحن</h3>
-            <p style={{ color: '#667085', lineHeight: 1.8 }}>ارفع PDF فاتورة شركة الشحن لاستخراج البوالص والتكاليف ومطابقتها مع بيانات سلة.</p>
-            <button style={uploadButton}>رفع ملف PDF</button>
+            <h3 style={{ marginTop: 0, fontSize: 24 }}>رفع فاتورة جديدة</h3>
+            <p style={{ color: '#667085', lineHeight: 1.8 }}>ارفع PDF الفاتورة أولًا، ثم اختر شركة الشحن قبل الحفظ حتى تُدرج الفاتورة داخل سجل الشركة نفسها.</p>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <button style={uploadButton}>رفع ملف PDF</button>
+              <select defaultValue="" style={selectStyle}>
+                <option value="" disabled>اختر شركة الشحن قبل الحفظ</option>
+                {carriers.map((carrier) => (
+                  <option key={carrier} value={carrier}>{carrier}</option>
+                ))}
+              </select>
+              <button style={disabledButton}>حفظ الفاتورة بعد تحديد الشركة</button>
+            </div>
+            <p style={{ margin: '12px 0 0', color: '#b42318', fontSize: 13 }}>تنبيه: لا يتم حفظ الفاتورة أو إدراجها محاسبيًا إلا بعد تحديد شركة الشحن.</p>
           </div>
         </div>
 
@@ -156,6 +169,27 @@ const uploadButton = {
   padding: '14px 18px',
   fontWeight: 700,
   cursor: 'pointer',
+}
+
+const selectStyle = {
+  width: '100%',
+  background: '#f8fafc',
+  color: '#142143',
+  border: '1px solid #d0d5dd',
+  borderRadius: 12,
+  padding: '14px 18px',
+  fontWeight: 700,
+}
+
+const disabledButton = {
+  width: '100%',
+  background: '#d8d0bd',
+  color: '#142143',
+  border: 0,
+  borderRadius: 12,
+  padding: '14px 18px',
+  fontWeight: 700,
+  cursor: 'not-allowed',
 }
 
 const td = { padding: 14, color: '#344054' }
