@@ -17,10 +17,10 @@ const initialCarriers = [
 ]
 
 const initialInvoices = [
-  { id: 1, carrier: 'أرامكس', month: 'مارس 2026', shipments: 128, amount: 2460, paid: true, receipt: 'receipt-aramex-mar.pdf', paidAt: '2026-04-03' },
-  { id: 2, carrier: 'أرامكس', month: 'أبريل 2026', shipments: 96, amount: 1880, paid: false, receipt: '', paidAt: '' },
-  { id: 3, carrier: 'DHL', month: 'أبريل 2026', shipments: 41, amount: 1320, paid: false, receipt: '', paidAt: '' },
-  { id: 4, carrier: 'سمسا', month: 'مايو 2026', shipments: 64, amount: 1125, paid: true, receipt: 'receipt-smsa-may.pdf', paidAt: '2026-05-15' },
+  { id: 1, carrier: 'أرامكس', month: 'مارس 2026', shipments: 128, amount: 2460, invoiceFile: 'invoice-aramex-mar.pdf', paid: true, receipt: 'receipt-aramex-mar.pdf', paidAt: '2026-04-03' },
+  { id: 2, carrier: 'أرامكس', month: 'أبريل 2026', shipments: 96, amount: 1880, invoiceFile: 'invoice-aramex-apr.pdf', paid: false, receipt: '', paidAt: '' },
+  { id: 3, carrier: 'DHL', month: 'أبريل 2026', shipments: 41, amount: 1320, invoiceFile: 'invoice-dhl-apr.pdf', paid: false, receipt: '', paidAt: '' },
+  { id: 4, carrier: 'سمسا', month: 'مايو 2026', shipments: 64, amount: 1125, invoiceFile: 'invoice-smsa-may.pdf', paid: true, receipt: 'receipt-smsa-may.pdf', paidAt: '2026-05-15' },
 ]
 
 const sampleShipments = [
@@ -67,6 +67,10 @@ export default function HomePage() {
     setInvoices(invoices.map((invoice) => invoice.id === invoiceId ? { ...invoice, paid: true, receipt: fileName, paidAt: today } : invoice))
   }
 
+  const deleteReceipt = (invoiceId: number) => {
+    setInvoices(invoices.map((invoice) => invoice.id === invoiceId ? { ...invoice, paid: false, receipt: '', paidAt: '' } : invoice))
+  }
+
   const carrierNames = carriers.map((carrier) => carrier.name)
 
   return (
@@ -91,7 +95,7 @@ export default function HomePage() {
         {activeMenu === 'salla' && <SallaPage excelFile={excelFile} setExcelFile={setExcelFile} />}
         {activeMenu === 'invoice' && <InvoicePage pdfFile={pdfFile} setPdfFile={setPdfFile} selectedCarrier={selectedCarrier} setSelectedCarrier={setSelectedCarrier} carriers={carrierNames} />}
         {activeMenu === 'carrier' && <CarrierManagementPage newCarrierName={newCarrierName} setNewCarrierName={setNewCarrierName} addCarrier={addCarrier} carriers={carriers} deletedCarriers={deletedCarriers} deleteCarrier={deleteCarrier} restoreCarrier={restoreCarrier} />}
-        {activeMenu === 'reports' && <CarrierReportsPage carriers={carriers} invoices={invoices} attachReceipt={attachReceipt} />}
+        {activeMenu === 'reports' && <CarrierReportsPage carriers={carriers} invoices={invoices} attachReceipt={attachReceipt} deleteReceipt={deleteReceipt} />}
       </section>
     </main>
   )
@@ -101,7 +105,12 @@ function PageHeader({ title, desc }: { title: string; desc: string }) {
   return <header style={{ marginBottom: 24 }}><h2 style={{ margin: 0, fontSize: 34 }}>{title}</h2><p style={{ color: '#667085', marginTop: 8 }}>{desc}</p></header>
 }
 
-function CarrierReportsPage({ carriers, invoices, attachReceipt }: { carriers: typeof initialCarriers; invoices: typeof initialInvoices; attachReceipt: (invoiceId: number, fileName: string) => void }) {
+function openAttachment(fileName: string) {
+  if (!fileName) return
+  alert(`معاينة الملف: ${fileName}\n\nفي النسخة القادمة سيتم فتح الملف الفعلي من التخزين بعد ربط قاعدة البيانات والملفات.`)
+}
+
+function CarrierReportsPage({ carriers, invoices, attachReceipt, deleteReceipt }: { carriers: typeof initialCarriers; invoices: typeof initialInvoices; attachReceipt: (invoiceId: number, fileName: string) => void; deleteReceipt: (invoiceId: number) => void }) {
   const [selectedReportCarrier, setSelectedReportCarrier] = useState(carriers[0]?.name || '')
   const [reportView, setReportView] = useState<'shipments' | 'invoices'>('shipments')
   const selectedInvoices = invoices.filter((item) => item.carrier === selectedReportCarrier)
@@ -117,7 +126,7 @@ function CarrierReportsPage({ carriers, invoices, attachReceipt }: { carriers: t
           <div style={{ display: 'flex', gap: 10 }}><button onClick={() => setReportView('shipments')} style={{ ...tabButton, ...(reportView === 'shipments' ? activeTabButton : {}) }}>قائمة الشحنات</button><button onClick={() => setReportView('invoices')} style={{ ...tabButton, ...(reportView === 'invoices' ? activeTabButton : {}) }}>الفواتير</button></div>
         </div>
         {reportView === 'shipments' && <table style={tableStyle}><thead><tr style={{ background: '#eef2f7' }}><th style={th}>رقم البوليصة</th><th style={th}>المصدر</th><th style={th}>رقم الطلب</th><th style={th}>المبلغ</th><th style={th}>الحالة</th></tr></thead><tbody>{selectedShipments.map((row) => <tr key={row.waybill} style={{ borderBottom: '1px solid #edf0f5' }}><td style={td}>{row.waybill}</td><td style={td}>{row.source}</td><td style={td}>{row.order}</td><td style={td}>{row.amount} ر.س</td><td style={td}><span style={row.status === 'مفوترة' ? greenBadge : yellowBadge}>{row.status}</span></td></tr>)}</tbody></table>}
-        {reportView === 'invoices' && <table style={tableStyle}><thead><tr style={{ background: '#eef2f7' }}><th style={th}>شهر الفاتورة</th><th style={th}>عدد الشحنات</th><th style={th}>مبلغ الفاتورة</th><th style={th}>حالة السداد</th><th style={th}>إيصال السداد</th><th style={th}>تاريخ السداد</th></tr></thead><tbody>{selectedInvoices.map((row) => <tr key={row.id} style={{ borderBottom: '1px solid #edf0f5' }}><td style={td}>{row.month}</td><td style={td}>{row.shipments}</td><td style={td}>{row.amount} ر.س</td><td style={td}><span style={row.paid ? greenBadge : yellowBadge}>{row.paid ? 'مسدد' : 'غير مسدد'}</span></td><td style={td}>{row.receipt ? <span style={receiptName}>{row.receipt}</span> : <label style={smallUploadButton}>إرفاق إيصال<input hidden type="file" accept="image/*,application/pdf" onChange={(e) => { const file = e.target.files?.[0]; if (file) attachReceipt(row.id, file.name) }} /></label>}</td><td style={td}>{row.paidAt || '—'}</td></tr>)}</tbody></table>}
+        {reportView === 'invoices' && <table style={tableStyle}><thead><tr style={{ background: '#eef2f7' }}><th style={th}>شهر الفاتورة</th><th style={th}>عدد الشحنات</th><th style={th}>مبلغ الفاتورة</th><th style={th}>الفاتورة</th><th style={th}>حالة السداد</th><th style={th}>إيصال السداد</th><th style={th}>تاريخ السداد</th><th style={th}>تعديل الإيصال</th></tr></thead><tbody>{selectedInvoices.map((row) => <tr key={row.id} style={{ borderBottom: '1px solid #edf0f5' }}><td style={td}>{row.month}</td><td style={td}>{row.shipments}</td><td style={td}>{row.amount} ر.س</td><td style={td}><button onClick={() => openAttachment(row.invoiceFile)} style={viewButton}>رؤية الفاتورة</button></td><td style={td}><span style={row.paid ? greenBadge : yellowBadge}>{row.paid ? 'مسدد' : 'غير مسدد'}</span></td><td style={td}>{row.receipt ? <button onClick={() => openAttachment(row.receipt)} style={viewButton}>رؤية الإيصال</button> : <label style={smallUploadButton}>إرفاق إيصال<input hidden type="file" accept="image/*,application/pdf" onChange={(e) => { const file = e.target.files?.[0]; if (file) attachReceipt(row.id, file.name) }} /></label>}</td><td style={td}>{row.paidAt || '—'}</td><td style={td}>{row.receipt ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button onClick={() => deleteReceipt(row.id)} style={dangerButton}>حذف الإيصال</button><label style={smallUploadButton}>إعادة إرفاق<input hidden type="file" accept="image/*,application/pdf" onChange={(e) => { const file = e.target.files?.[0]; if (file) attachReceipt(row.id, file.name) }} /></label></div> : '—'}</td></tr>)}</tbody></table>}
       </div>
     </>
   )
@@ -135,6 +144,7 @@ const activeButton: CSSProperties = { background: '#d8d0bd', color: '#142143' }
 const cardStyle: CSSProperties = { background: 'white', borderRadius: 20, padding: 24, boxShadow: '0 10px 30px rgba(20,33,67,.08)', marginBottom: 18 }
 const uploadButton: CSSProperties = { display: 'block', width: '100%', background: '#142143', color: 'white', borderRadius: 14, padding: '16px', fontWeight: 700, textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }
 const smallUploadButton: CSSProperties = { display: 'inline-block', background: '#142143', color: 'white', borderRadius: 10, padding: '9px 12px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }
+const viewButton: CSSProperties = { background: '#eef2f7', color: '#142143', border: '1px solid #d0d5dd', borderRadius: 10, padding: '9px 12px', fontWeight: 800, cursor: 'pointer' }
 const selectStyle: CSSProperties = { width: '100%', padding: '15px', borderRadius: 14, border: '1px solid #d0d5dd', background: '#f8fafc', fontWeight: 700 }
 const saveButton: CSSProperties = { width: '100%', background: '#d8d0bd', color: '#142143', border: 0, borderRadius: 14, padding: '16px', fontWeight: 700 }
 const dangerButton: CSSProperties = { background: '#fee2e2', color: '#b42318', border: 0, borderRadius: 10, padding: '10px 14px', fontWeight: 700, cursor: 'pointer' }
@@ -145,7 +155,6 @@ const tabButton: CSSProperties = { background: '#f8fafc', color: '#142143', bord
 const activeTabButton: CSSProperties = { background: '#d8d0bd', borderColor: '#d8d0bd' }
 const greenBadge: CSSProperties = { background: '#dcfce7', color: '#027a48', borderRadius: 999, padding: '7px 12px', fontWeight: 800 }
 const yellowBadge: CSSProperties = { background: '#fef3c7', color: '#92400e', borderRadius: 999, padding: '7px 12px', fontWeight: 800 }
-const receiptName: CSSProperties = { color: '#027a48', fontWeight: 800 }
 const successBox: CSSProperties = { background: '#ecfdf3', color: '#027a48', padding: 12, borderRadius: 12, fontWeight: 700, marginTop: 12 }
 const descStyle: CSSProperties = { color: '#667085', lineHeight: 1.9 }
 const titleStyle: CSSProperties = { marginTop: 0, fontSize: 28 }
