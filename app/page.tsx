@@ -7,7 +7,8 @@ const menuItems = [
   { id: 'salla', label: 'رفع بيانات سلة', icon: '📤' },
   { id: 'invoice', label: 'رفع فاتورة جديدة', icon: '📄' },
   { id: 'carrier', label: 'إضافة شركة شحن', icon: '➕' },
-  { id: 'reports', label: 'شركات الشحن', icon: '📊' },
+  { id: 'companies', label: 'شركات الشحن', icon: '🚗' },
+  { id: 'reports', label: 'التقارير', icon: '📊' },
 ]
 
 const initialCarriers = [
@@ -65,7 +66,8 @@ export default function HomePage() {
         {activeMenu === 'salla' && <SallaPage excelFile={excelFile} setExcelFile={setExcelFile} carriers={carrierNames} />}
         {activeMenu === 'invoice' && <InvoicePage pdfFile={pdfFile} setPdfFile={setPdfFile} selectedCarrier={selectedCarrier} setSelectedCarrier={setSelectedCarrier} carriers={carrierNames} />}
         {activeMenu === 'carrier' && <CarrierManagementPage newCarrierName={newCarrierName} setNewCarrierName={setNewCarrierName} addCarrier={addCarrier} carriers={carriers} deletedCarriers={deletedCarriers} deleteCarrier={deleteCarrier} restoreCarrier={restoreCarrier} />}
-        {activeMenu === 'reports' && <CarrierReportsPage carriers={carriers} invoices={invoices} attachReceipt={attachReceipt} deleteReceipt={deleteReceipt} />}
+        {activeMenu === 'companies' && <CarrierReportsPage carriers={carriers} invoices={invoices} attachReceipt={attachReceipt} deleteReceipt={deleteReceipt} />}
+        {activeMenu === 'reports' && <ReportsPage />}
       </section>
     </main>
   )
@@ -73,6 +75,10 @@ export default function HomePage() {
 
 function PageHeader({ title, desc }: { title: string; desc: string }) { return <header style={{ marginBottom: 24 }}><h2 style={{ margin: 0, fontSize: 34 }}>{title}</h2><p style={{ color: '#667085', marginTop: 8 }}>{desc}</p></header> }
 function openAttachment(fileName: string) { if (!fileName) return; alert(`معاينة الملف: ${fileName}\n\nفي النسخة القادمة سيتم فتح الملف الفعلي من التخزين بعد ربط قاعدة البيانات والملفات.`) }
+
+function ReportsPage() {
+  return <><PageHeader title="التقارير" desc="ملخص عام لأداء الشحن والفواتير والسداد." /><div style={miniGrid}><div style={cardStyle}><h3 style={titleStyle}>إجمالي الفواتير</h3><strong style={bigNumber}>4</strong></div><div style={cardStyle}><h3 style={titleStyle}>الفواتير المسددة</h3><strong style={bigNumber}>2</strong></div><div style={cardStyle}><h3 style={titleStyle}>غير المسدد</h3><strong style={bigNumber}>2</strong></div><div style={cardStyle}><h3 style={titleStyle}>إجمالي مبالغ الفواتير</h3><strong style={bigNumber}>6,785 ر.س</strong></div></div></>
+}
 
 function SallaPage({ excelFile, setExcelFile, carriers }: { excelFile: string; setExcelFile: (v: string) => void; carriers: string[] }) {
   const grouped = carriers.map((carrier) => ({ carrier, count: sampleShipments.filter((s) => s.carrier === carrier && s.source === 'سلة').length }))
@@ -118,6 +124,7 @@ const successBox: CSSProperties = { background: '#ecfdf3', color: '#027a48', pad
 const noteStyle: CSSProperties = { color: '#344054', lineHeight: 1.9, background: '#f8fafc', padding: 14, borderRadius: 14, marginTop: 14 }
 const miniGrid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginTop: 14 }
 const miniCard: CSSProperties = { background: '#eef2f7', borderRadius: 14, padding: 14, display: 'grid', gap: 6 }
+const bigNumber: CSSProperties = { display: 'block', marginTop: 12, fontSize: 34 }
 const descStyle: CSSProperties = { color: '#667085', lineHeight: 1.9 }
 const titleStyle: CSSProperties = { marginTop: 0, fontSize: 28 }
 const inputStyle: CSSProperties = { width: '100%', padding: 15, borderRadius: 14, border: '1px solid #d0d5dd', fontWeight: 700, boxSizing: 'border-box' }
