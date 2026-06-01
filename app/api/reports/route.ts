@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/app/lib/supabase'
 
-// خوارزمية حساب المبلغ المتوقع لمجموعة طلبات
+// خوارزمية حساب تكلفة الشحنات الصادرة لطلب واحد
 function calcExpectedForOrder(outboundShipments: any[], company: any) {
   const base = Number(company.base_price) || Number(company.agreed_price_outbound) || 0
   const baseWeight = Number(company.base_weight_kg) || 0
@@ -22,13 +22,26 @@ function calcExpectedForOrder(outboundShipments: any[], company: any) {
   return total
 }
 
+// خوارزمية حساب تكلفة شحنة مسترجعة واحدة (مع وزن)
+function calcReturnShipment(shipment: any, company: any): number {
+  const base = Number(company.return_price) || Number(company.agreed_price_return) || 0
+  const baseWeight = Number(company.return_base_weight_kg) || 0
+  const extraKg = Number(company.return_extra_kg_price) || 0
+
+  // إذا لم يُضبَط تسعير الوزن للمسترجع → السعر الثابت فقط
+  if (baseWeight === 0 && extraKg === 0) return base
+
+  const w = Number(shipment.weight_kg) || 0
+  const overWeight = Math.max(0, w - baseWeight)
+  return base + overWeight * extraKg
+}
+
 // GET - تقارير شاملة لكل شركة
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const companyId = searchParams.get('company_id')
   const companyName = searchParams.get('company') // backward compat
 
-  // جلب شركات الشحن
   const { data: companies } = await supabaseAdmin
     .from('shipping_companies')
     .select('*')
@@ -36,25 +49,21 @@ export async function GET(req: NextRequest) {
 
   if (!companies) return NextResponse.json([])
 
-  // فلترة حسب المعامل المرسل
   let targetCompanies = companies
   if (companyId) {
-    targetCompanies = companies.filter(c => c.id === companyId)
+    targetCompanies = companies.filter((c: any) => c.id === companyId)
   } else if (companyName) {
-    targetCompanies = companies.filter(c => c.name === companyName)
+    targetCompanies = companies.filter((c: any) => c.name === companyName)
   }
 
   const reports = await Promise.all(
-    targetCompanies.map(async c => {
+    targetCompanies.map(async (c: any) => {
       // شحنات سلة — بالأولوية company_id ثم company_name
-      const sallaQuery = supabaseAdmin
+      const { data: sallaById } = await supabaseAdmin
         .from('salla_shipments')
         .select('*')
         .eq('company_id', c.id)
 
-      const { data: sallaById } = await sallaQuery
-
-      // إذا لم توجد نتائج بالـ id، نرجع لـ company_name (بيانات قديمة قبل Migration)
       let sallaShipments = sallaById || []
       if (!sallaShipments.length) {
         const { data: sallaByName } = await supabaseAdmin
@@ -64,7 +73,7 @@ export async function GET(req: NextRequest) {
         sallaShipments = sallaByName || []
       }
 
-      // فواتير الشركة — بالأولوية company_id ثم company_name
+      // فواتير الشركة
       const { data: invoicesById } = await supabaseAdmin
         .from('invoices')
         .select('*, invoice_shipments(*), payments(*)')
@@ -84,7 +93,7 @@ export async function GET(req: NextRequest) {
       const sallaOutbound = sallaShipments.filter((s: any) => s.type === 'outbound')
       const sallaReturn = sallaShipments.filter((s: any) => s.type === 'return')
 
-      // تجميع الشحنات الصادرة حسب الطلب وتطبيق خوارزمية التسعير
+      // ── المبلغ المتوقع للصادر (مجمَّع حسب الطلب) ─────────────────────
       const orderMap: Record<string, any[]> = {}
       sallaOutbound.forEach((s: any) => {
         const key = s.order_id || s.waybill
@@ -97,41 +106,34 @@ export async function GET(req: NextRequest) {
         expectedOutbound += calcExpectedForOrder(orderShipments, c)
       })
 
-      // المسترجعات بسعر ثابت
-      const returnPrice =
-        Number(c.return_price) || Number(c.agreed_price_return) || 0
-      const expectedReturn = sallaReturn.length * returnPrice
+      // ── المبلغ المتوقع للمسترجع (مع حساب الوزن الزائد) ───────────────
+      let expectedReturn = 0
+      sallaReturn.forEach((s: any) => {
+        expectedReturn += calcReturnShipment(s, c)
+      })
 
       const expectedAmount = expectedOutbound + expectedReturn
 
-      // ما حسبته الشركة فعلياً (من الفواتير)
+      // ── ما حسبته الشركة فعلياً (من الفواتير) ─────────────────────────
       const allInvoiceShipments = invoices.flatMap((inv: any) => inv.invoice_shipments || [])
       const actualAmount = allInvoiceShipments.reduce(
         (sum: number, s: any) => sum + (s.amount_charged || 0),
         0,
       )
 
-      // تكلفة المسترجعات
+      // ── تكلفة المسترجعات (من الفواتير) ────────────────────────────────
       const returnShipments = allInvoiceShipments.filter((s: any) => s.type === 'return')
       const returnCost = returnShipments.reduce(
         (sum: number, s: any) => sum + (s.amount_charged || 0),
         0,
       )
 
-      // الفرق (موجب = لصالحك، سالب = خسارة)
       const difference = expectedAmount - actualAmount
 
-      // المدفوع والمتبقي
       const paidInvoices = invoices.filter((inv: any) => inv.status === 'paid')
       const unpaidInvoices = invoices.filter((inv: any) => inv.status === 'unpaid')
-      const totalPaid = paidInvoices.reduce(
-        (sum: number, inv: any) => sum + (inv.total_amount || 0),
-        0,
-      )
-      const totalUnpaid = unpaidInvoices.reduce(
-        (sum: number, inv: any) => sum + (inv.total_amount || 0),
-        0,
-      )
+      const totalPaid = paidInvoices.reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
+      const totalUnpaid = unpaidInvoices.reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
 
       return {
         company: c,
@@ -142,6 +144,8 @@ export async function GET(req: NextRequest) {
         },
         financial: {
           expectedAmount,
+          expectedOutbound,
+          expectedReturn,
           actualAmount,
           difference,
           profit: difference >= 0,
