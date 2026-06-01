@@ -10,6 +10,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl">
+      <head>
+        <style>{`
+          @keyframes spin {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          * { box-sizing: border-box; }
+          body { margin: 0; }
+        `}</style>
+      </head>
       <body>{children}</body>
     </html>
   )
