@@ -10,3 +10,14 @@ export function getSupabaseAdmin(): SupabaseClient {
   _admin = createClient(url, key, { auth: { persistSession: false } })
   return _admin
 }
+
+// Lazy proxy — routes that import supabaseAdmin directly will use this
+// Calls getSupabaseAdmin() on first property access so env vars are read at runtime not import time
+export const supabaseAdmin: SupabaseClient = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    return (getSupabaseAdmin() as any)[prop]
+  },
+  apply(_target, _this, args) {
+    return (getSupabaseAdmin() as any)(...args)
+  },
+})
