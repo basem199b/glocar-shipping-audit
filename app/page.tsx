@@ -7,9 +7,20 @@ import { useState, useEffect, useCallback } from 'react'
 type Company = {
   id: string
   name: string
-  agreed_price_outbound: number
-  agreed_price_return: number
   status: string
+  // تسعير الصادر
+  base_price?: number
+  agreed_price_outbound?: number
+  base_weight_kg?: number
+  extra_kg_price?: number
+  free_waybill_count?: number
+  extra_waybill_price?: number
+  // تسعير المسترجع
+  return_price?: number
+  agreed_price_return?: number
+  return_base_weight_kg?: number
+  return_extra_kg_price?: number
+  notes?: string
 }
 type Invoice = {
   id: string
@@ -502,14 +513,31 @@ function CompaniesPage({
   deleted: Company[]
   onRefresh: () => void
 }) {
+  // ── نموذج الإضافة ─────────────────────────────────────────────────
   const [name, setName] = useState('')
-  const [priceOut, setPriceOut] = useState('')
-  const [priceRet, setPriceRet] = useState('')
+  const [basePrice, setBasePrice] = useState('')
+  const [baseWeight, setBaseWeight] = useState('')
+  const [extraKg, setExtraKg] = useState('')
+  const [freeCount, setFreeCount] = useState('')
+  const [extraWaybill, setExtraWaybill] = useState('')
+  const [retPrice, setRetPrice] = useState('')
+  const [retBaseWeight, setRetBaseWeight] = useState('')
+  const [retExtraKg, setRetExtraKg] = useState('')
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // ── نموذج التعديل ─────────────────────────────────────────────────
   const [editId, setEditId] = useState<string | null>(null)
-  const [editOut, setEditOut] = useState('')
-  const [editRet, setEditRet] = useState('')
+  const [editData, setEditData] = useState<Record<string, string>>({})
+
+  // ── رسالة الحذف ───────────────────────────────────────────────────
   const [deleteError, setDeleteError] = useState<{ id: string; msg: string; details?: any } | null>(null)
+
+  const resetForm = () => {
+    setName(''); setBasePrice(''); setBaseWeight(''); setExtraKg('')
+    setFreeCount(''); setExtraWaybill(''); setRetPrice('')
+    setRetBaseWeight(''); setRetExtraKg(''); setNotes('')
+  }
 
   const addCompany = async () => {
     if (!name.trim()) return
@@ -520,15 +548,58 @@ function CompaniesPage({
       body: JSON.stringify({
         action: 'add',
         name: name.trim(),
-        agreed_price_outbound: parseFloat(priceOut) || 0,
-        agreed_price_return: parseFloat(priceRet) || 0,
+        base_price: parseFloat(basePrice) || 0,
+        base_weight_kg: parseFloat(baseWeight) || 0,
+        extra_kg_price: parseFloat(extraKg) || 0,
+        free_waybill_count: parseInt(freeCount) || 0,
+        extra_waybill_price: parseFloat(extraWaybill) || 0,
+        return_price: parseFloat(retPrice) || 0,
+        return_base_weight_kg: parseFloat(retBaseWeight) || 0,
+        return_extra_kg_price: parseFloat(retExtraKg) || 0,
+        notes,
       }),
     })
-    setName('')
-    setPriceOut('')
-    setPriceRet('')
+    resetForm()
     onRefresh()
     setSaving(false)
+  }
+
+  const startEdit = (c: Company) => {
+    setEditId(c.id)
+    setEditData({
+      base_price: String(c.base_price ?? c.agreed_price_outbound ?? 0),
+      base_weight_kg: String(c.base_weight_kg ?? 0),
+      extra_kg_price: String(c.extra_kg_price ?? 0),
+      free_waybill_count: String(c.free_waybill_count ?? 0),
+      extra_waybill_price: String(c.extra_waybill_price ?? 0),
+      return_price: String(c.return_price ?? c.agreed_price_return ?? 0),
+      return_base_weight_kg: String(c.return_base_weight_kg ?? 0),
+      return_extra_kg_price: String(c.return_extra_kg_price ?? 0),
+      notes: c.notes ?? '',
+    })
+  }
+
+  const saveEdit = async (id: string, name: string) => {
+    await fetch('/api/companies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update',
+        id,
+        name,
+        base_price: parseFloat(editData.base_price) || 0,
+        base_weight_kg: parseFloat(editData.base_weight_kg) || 0,
+        extra_kg_price: parseFloat(editData.extra_kg_price) || 0,
+        free_waybill_count: parseInt(editData.free_waybill_count) || 0,
+        extra_waybill_price: parseFloat(editData.extra_waybill_price) || 0,
+        return_price: parseFloat(editData.return_price) || 0,
+        return_base_weight_kg: parseFloat(editData.return_base_weight_kg) || 0,
+        return_extra_kg_price: parseFloat(editData.return_extra_kg_price) || 0,
+        notes: editData.notes || '',
+      }),
+    })
+    setEditId(null)
+    onRefresh()
   }
 
   const deleteCompany = async (id: string) => {
@@ -555,176 +626,170 @@ function CompaniesPage({
     onRefresh()
   }
 
-  const savePrices = async (id: string) => {
-    await fetch('/api/companies', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'update_prices',
-        id,
-        agreed_price_outbound: parseFloat(editOut) || 0,
-        agreed_price_return: parseFloat(editRet) || 0,
-      }),
-    })
-    setEditId(null)
-    onRefresh()
-  }
+  const ef = (key: string) => editData[key] ?? ''
+  const setEf = (key: string, val: string) => setEditData(prev => ({ ...prev, [key]: val }))
 
   return (
     <>
       <PageHeader
         title="شركات الشحن"
-        desc="أضف شركات الشحن وحدد سعر الاتفاق لكل شحنة صادرة ومسترجعة."
+        desc="أضف شركات الشحن وحدد تفاصيل التسعير للشحنات الصادرة والمسترجعة."
       />
 
+      {/* ── نموذج إضافة شركة ──────────────────────────────────────────── */}
       <div style={cardStyle}>
         <h3 style={titleStyle}>إضافة شركة شحن جديدة</h3>
-        <div
-          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}
-        >
-          <div style={{ gridColumn: '1 / -1' }}>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="اسم شركة الشحن (مثال: أرامكس)"
-              style={inputStyle}
-            />
+
+        <div style={{ marginBottom: 12 }}>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="اسم شركة الشحن (مثال: أرامكس)"
+            style={inputStyle}
+          />
+        </div>
+
+        <p style={sectionLabel}>📦 تسعير الشحنات الصادرة</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
+          <div>
+            <label style={labelStyle}>السعر الأساسي (ر.س)</label>
+            <input type="number" value={basePrice} onChange={e => setBasePrice(e.target.value)} placeholder="0" style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>سعر الشحنة الصادرة (ر.س) — شامل الضريبة</label>
-            <input
-              type="number"
-              value={priceOut}
-              onChange={e => setPriceOut(e.target.value)}
-              placeholder="0"
-              style={inputStyle}
-            />
+            <label style={labelStyle}>الوزن المشمول (كجم)</label>
+            <input type="number" value={baseWeight} onChange={e => setBaseWeight(e.target.value)} placeholder="0" style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>سعر الشحنة المسترجعة (ر.س) — شامل الضريبة</label>
-            <input
-              type="number"
-              value={priceRet}
-              onChange={e => setPriceRet(e.target.value)}
-              placeholder="0"
-              style={inputStyle}
-            />
+            <label style={labelStyle}>سعر الكيلو الزائد (ر.س)</label>
+            <input type="number" value={extraKg} onChange={e => setExtraKg(e.target.value)} placeholder="0" style={inputStyle} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-            <button
-              disabled={!name.trim() || saving}
-              onClick={addCompany}
-              style={{ ...saveButton, width: '100%', opacity: name.trim() ? 1 : 0.5 }}
-            >
-              {saving ? 'جاري الحفظ...' : 'حفظ'}
-            </button>
+          <div>
+            <label style={labelStyle}>بوالص مجانية/طلب</label>
+            <input type="number" value={freeCount} onChange={e => setFreeCount(e.target.value)} placeholder="0" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>سعر البوليصة الزائدة (ر.س)</label>
+            <input type="number" value={extraWaybill} onChange={e => setExtraWaybill(e.target.value)} placeholder="0" style={inputStyle} />
           </div>
         </div>
-        <p style={{ ...noteStyle, marginTop: 14 }}>
-          💡 جميع الأسعار شاملة الضريبة المضافة (15%)
-        </p>
+
+        <p style={sectionLabel}>🔄 تسعير الشحنات المسترجعة</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
+          <div>
+            <label style={labelStyle}>سعر المسترجع الأساسي (ر.س)</label>
+            <input type="number" value={retPrice} onChange={e => setRetPrice(e.target.value)} placeholder="0" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>الوزن المشمول للمسترجع (كجم)</label>
+            <input type="number" value={retBaseWeight} onChange={e => setRetBaseWeight(e.target.value)} placeholder="0" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>سعر الكيلو الزائد للمسترجع (ر.س)</label>
+            <input type="number" value={retExtraKg} onChange={e => setRetExtraKg(e.target.value)} placeholder="0" style={inputStyle} />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
+          <div>
+            <label style={labelStyle}>ملاحظات (اختياري)</label>
+            <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="أي ملاحظات على الاتفاق..." style={inputStyle} />
+          </div>
+          <button
+            disabled={!name.trim() || saving}
+            onClick={addCompany}
+            style={{ ...saveButton, opacity: name.trim() ? 1 : 0.5, whiteSpace: 'nowrap' }}
+          >
+            {saving ? 'جاري الحفظ...' : '+ إضافة شركة'}
+          </button>
+        </div>
+        <p style={{ ...noteStyle, marginTop: 12 }}>💡 جميع الأسعار شاملة الضريبة المضافة (15%)</p>
       </div>
 
+      {/* ── قائمة الشركات النشطة ──────────────────────────────────────── */}
       <div style={cardStyle}>
         <h3 style={titleStyle}>شركات الشحن النشطة</h3>
         {active.length === 0 ? (
           <div style={emptyState}>لا توجد شركات شحن مضافة بعد.</div>
         ) : (
-          <table style={tableStyle}>
-            <thead>
-              <tr style={{ background: '#eef2f7' }}>
-                <th style={th}>الشركة</th>
-                <th style={th}>سعر الصادر</th>
-                <th style={th}>سعر المسترجع</th>
-                <th style={th}>إجراء</th>
-              </tr>
-            </thead>
-            <tbody>
-              {active.map(c => (
-                <tr key={c.id} style={{ borderBottom: '1px solid #edf0f5' }}>
-                  <td style={{ ...td, fontWeight: 700 }}>{c.name}</td>
-                  <td style={td}>
-                    {editId === c.id ? (
-                      <input
-                        type="number"
-                        value={editOut}
-                        onChange={e => setEditOut(e.target.value)}
-                        style={{ ...inputStyle, padding: '8px', width: 80 }}
-                      />
-                    ) : (
-                      <span>{c.agreed_price_outbound} ر.س</span>
-                    )}
-                  </td>
-                  <td style={td}>
-                    {editId === c.id ? (
-                      <input
-                        type="number"
-                        value={editRet}
-                        onChange={e => setEditRet(e.target.value)}
-                        style={{ ...inputStyle, padding: '8px', width: 80 }}
-                      />
-                    ) : (
-                      <span>{c.agreed_price_return} ر.س</span>
-                    )}
-                  </td>
-                  <td style={{ ...td, display: 'flex', gap: 8 }}>
-                    {editId === c.id ? (
-                      <>
-                        <button
-                          onClick={() => savePrices(c.id)}
-                          style={saveSmallButton}
-                        >
-                          حفظ
-                        </button>
-                        <button
-                          onClick={() => setEditId(null)}
-                          style={grayButton}
-                        >
-                          إلغاء
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => {
-                            setEditId(c.id)
-                            setEditOut(String(c.agreed_price_outbound))
-                            setEditRet(String(c.agreed_price_return))
-                          }}
-                          style={grayButton}
-                        >
-                          تعديل
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm('هل أنت متأكد من حذف ' + c.name + ' نهائياً؟')) {
-                              deleteCompany(c.id)
-                            }
-                          }}
-                          style={dangerButton}
-                        >
-                          حذف
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {active.map(c => (
+              <div key={c.id} style={companyCard}>
+                {editId === c.id ? (
+                  /* ── وضع التعديل ─────────────────────────────────── */
+                  <div>
+                    <p style={{ ...sectionLabel, marginTop: 0 }}>📦 تسعير الصادر</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, marginBottom: 10 }}>
+                      <div><label style={labelStyle}>السعر الأساسي</label><input type="number" value={ef('base_price')} onChange={e => setEf('base_price', e.target.value)} style={{ ...inputStyle, padding: '8px' }} /></div>
+                      <div><label style={labelStyle}>الوزن المشمول (كجم)</label><input type="number" value={ef('base_weight_kg')} onChange={e => setEf('base_weight_kg', e.target.value)} style={{ ...inputStyle, padding: '8px' }} /></div>
+                      <div><label style={labelStyle}>كيلو زائد (ر.س)</label><input type="number" value={ef('extra_kg_price')} onChange={e => setEf('extra_kg_price', e.target.value)} style={{ ...inputStyle, padding: '8px' }} /></div>
+                      <div><label style={labelStyle}>بوالص مجانية/طلب</label><input type="number" value={ef('free_waybill_count')} onChange={e => setEf('free_waybill_count', e.target.value)} style={{ ...inputStyle, padding: '8px' }} /></div>
+                      <div><label style={labelStyle}>بوليصة زائدة (ر.س)</label><input type="number" value={ef('extra_waybill_price')} onChange={e => setEf('extra_waybill_price', e.target.value)} style={{ ...inputStyle, padding: '8px' }} /></div>
+                    </div>
+                    <p style={sectionLabel}>🔄 تسعير المسترجع</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, marginBottom: 10 }}>
+                      <div><label style={labelStyle}>سعر المسترجع (ر.س)</label><input type="number" value={ef('return_price')} onChange={e => setEf('return_price', e.target.value)} style={{ ...inputStyle, padding: '8px' }} /></div>
+                      <div><label style={labelStyle}>الوزن المشمول (كجم)</label><input type="number" value={ef('return_base_weight_kg')} onChange={e => setEf('return_base_weight_kg', e.target.value)} style={{ ...inputStyle, padding: '8px' }} /></div>
+                      <div><label style={labelStyle}>كيلو زائد مسترجع (ر.س)</label><input type="number" value={ef('return_extra_kg_price')} onChange={e => setEf('return_extra_kg_price', e.target.value)} style={{ ...inputStyle, padding: '8px' }} /></div>
+                    </div>
+                    <div style={{ marginBottom: 10 }}>
+                      <label style={labelStyle}>ملاحظات</label>
+                      <input value={ef('notes')} onChange={e => setEf('notes', e.target.value)} style={{ ...inputStyle, padding: '8px' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => saveEdit(c.id, c.name)} style={saveSmallButton}>حفظ التعديلات</button>
+                      <button onClick={() => setEditId(null)} style={grayButton}>إلغاء</button>
+                    </div>
+                  </div>
+                ) : (
+                  /* ── وضع العرض ───────────────────────────────────── */
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                    <div>
+                      <p style={{ margin: '0 0 8px', fontWeight: 900, fontSize: 18, color: '#142143' }}>{c.name}</p>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={pricePill}>📦 صادر: {c.base_price ?? c.agreed_price_outbound ?? 0} ر.س</span>
+                        {(c.base_weight_kg ?? 0) > 0 && <span style={pricePill}>⚖️ حتى {c.base_weight_kg} كجم</span>}
+                        {(c.extra_kg_price ?? 0) > 0 && <span style={pricePill}>+{c.extra_kg_price} ر.س/كجم</span>}
+                        {(c.free_waybill_count ?? 0) > 0 && <span style={pricePill}>🎫 {c.free_waybill_count} مجاني/طلب</span>}
+                        {(c.extra_waybill_price ?? 0) > 0 && <span style={pricePill}>+{c.extra_waybill_price} ر.س/بوليصة</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
+                        <span style={{ ...pricePill, background: '#fef3c7', color: '#92400e' }}>🔄 مسترجع: {c.return_price ?? c.agreed_price_return ?? 0} ر.س</span>
+                        {(c.return_base_weight_kg ?? 0) > 0 && <span style={{ ...pricePill, background: '#fef3c7', color: '#92400e' }}>⚖️ حتى {c.return_base_weight_kg} كجم</span>}
+                        {(c.return_extra_kg_price ?? 0) > 0 && <span style={{ ...pricePill, background: '#fef3c7', color: '#92400e' }}>+{c.return_extra_kg_price} ر.س/كجم</span>}
+                      </div>
+                      {c.notes && <p style={{ margin: '6px 0 0', color: '#667085', fontSize: 13 }}>📝 {c.notes}</p>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                      <button onClick={() => startEdit(c)} style={grayButton}>تعديل</button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('هل أنت متأكد من حذف ' + c.name + ' نهائياً؟')) {
+                            deleteCompany(c.id)
+                          }
+                        }}
+                        style={dangerButton}
+                      >
+                        حذف
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {deleteError && (
+          <div style={{ ...errorBox, marginTop: 16, borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <strong>⛔ {deleteError.msg}</strong>
+            {deleteError.details && (
+              <span style={{ fontSize: 13, opacity: 0.8 }}>
+                شحنات مرتبطة: {deleteError.details.salla_shipments} | فواتير مرتبطة: {deleteError.details.invoices}
+              </span>
+            )}
+          </div>
         )}
       </div>
-
-      {deleteError && (
-        <div style={{ ...errorBox, marginTop: 16, borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <strong>⛔ {deleteError.msg}</strong>
-          {deleteError.details && (
-            <span style={{ fontSize: 13, opacity: 0.8 }}>
-              شحنات مرتبطة: {deleteError.details.salla_shipments} | فواتير مرتبطة: {deleteError.details.invoices}
-            </span>
-          )}
-        </div>
-      )}
 
       {deleted.length > 0 && (
         <div style={cardStyle}>
@@ -741,10 +806,7 @@ function CompaniesPage({
                 <tr key={c.id} style={{ borderBottom: '1px solid #fecaca' }}>
                   <td style={td}>{c.name}</td>
                   <td style={td}>
-                    <button
-                      onClick={() => restoreCompany(c.id)}
-                      style={restoreButton}
-                    >
+                    <button onClick={() => restoreCompany(c.id)} style={restoreButton}>
                       استرجاع
                     </button>
                   </td>
@@ -757,7 +819,6 @@ function CompaniesPage({
     </>
   )
 }
-
 // ─── Reports Page ─────────────────────────────────────────────────────────────
 function ReportsPage({
   reports,
@@ -1129,3 +1190,9 @@ const inputStyle: CSSProperties = { width: '100%', padding: '13px', borderRadius
 const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', textAlign: 'right' }
 const th: CSSProperties = { padding: 12, fontWeight: 700, color: '#344054' }
 const td: CSSProperties = { padding: 12, color: '#344054' }
+const companyCard: CSSProperties = { background: '#f8fafc', border: '1px solid #eef2f7', borderRadius: 16, padding: 18 }
+const pricePill: CSSProperties = { background: '#eef2f7', color: '#344054', borderRadius: 999, padding: '4px 12px', fontSize: 13, fontWeight: 700 }
+const sectionLabel: CSSProperties = { margin: '0 0 8px', fontWeight: 800, color: '#142143', fontSize: 14 }
+
+
+
