@@ -19,12 +19,17 @@ export async function POST(req: NextRequest) {
   if (action === 'add' || action === 'update') {
     const payload = {
       name: body.name,
+      // تسعير الصادر
       base_price: body.base_price || 0,
       base_weight_kg: body.base_weight_kg || 0,
       extra_kg_price: body.extra_kg_price || 0,
-      return_price: body.return_price || 0,
       free_waybill_count: body.free_waybill_count || 0,
       extra_waybill_price: body.extra_waybill_price || 0,
+      // تسعير المسترجع
+      return_price: body.return_price || 0,
+      return_base_weight_kg: body.return_base_weight_kg || 0,
+      return_extra_kg_price: body.return_extra_kg_price || 0,
+      // ملاحظات
       notes: body.notes || '',
     }
     if (action === 'add') {
@@ -51,7 +56,6 @@ export async function POST(req: NextRequest) {
   if (action === 'delete') {
     const supabase = getSupabaseAdmin()
 
-    // 1. جلب اسم الشركة (نحتاجه للتحقق بالاسم كـ fallback)
     const { data: company, error: fetchErr } = await supabase
       .from('shipping_companies')
       .select('id, name')
@@ -62,57 +66,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'الشركة غير موجودة' }, { status: 404 })
     }
 
-    // 2. فحص الشحنات المرتبطة (company_id أو company_name)
     const { count: sallaCount, error: sallaErr } = await supabase
       .from('salla_shipments')
       .select('id', { count: 'exact', head: true })
       .or(`company_id.eq.${id},company_name.eq.${company.name}`)
 
-    if (sallaErr) {
-      return NextResponse.json({ error: sallaErr.message }, { status: 500 })
-    }
+    if (sallaErr) return NextResponse.json({ error: sallaErr.message }, { status: 500 })
 
-    // 3. فحص الفواتير المرتبطة (company_id أو company_name)
     const { count: invoicesCount, error: invoicesErr } = await supabase
       .from('invoices')
       .select('id', { count: 'exact', head: true })
       .or(`company_id.eq.${id},company_name.eq.${company.name}`)
 
-    if (invoicesErr) {
-      return NextResponse.json({ error: invoicesErr.message }, { status: 500 })
-    }
+    if (invoicesErr) return NextResponse.json({ error: invoicesErr.message }, { status: 500 })
 
-    const hasLinkedData = (sallaCount ?? 0) > 0 || (invoicesCount ?? 0) > 0
-
-    // 4. إذا توجد بيانات → ارفض الحذف نهائياً
-    if (hasLinkedData) {
+    if ((sallaCount ?? 0) > 0 || (invoicesCount ?? 0) > 0) {
       return NextResponse.json(
         {
-          error:
-            'لا يمكن حذف شركة الشحن لأنها مرتبطة ببيانات أو فواتير محفوظة داخل النظام.',
-          details: {
-            salla_shipments: sallaCount ?? 0,
-            invoices: invoicesCount ?? 0,
-          },
+          error: 'لا يمكن حذف شركة الشحن لأنها مرتبطة ببيانات أو فواتير محفوظة داخل النظام.',
+          details: { salla_shipments: sallaCount ?? 0, invoices: invoicesCount ?? 0 },
         },
         { status: 409 },
       )
     }
 
-    // 5. لا توجد بيانات مرتبطة → احذف نهائياً
     const { error: deleteErr } = await supabase
       .from('shipping_companies')
       .delete()
       .eq('id', id)
 
-    if (deleteErr) {
-      return NextResponse.json({ error: deleteErr.message }, { status: 500 })
-    }
-
+    if (deleteErr) return NextResponse.json({ error: deleteErr.message }, { status: 500 })
     return NextResponse.json({ success: true, deleted: true })
   }
 
-  // ─── استرجاع (للشركات القديمة المخفية soft-delete) ──────────────────
+  // ─── استرجاع ──────────────────────────────────────────────────────────
   if (action === 'restore') {
     const { error } = await getSupabaseAdmin()
       .from('shipping_companies')
