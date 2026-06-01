@@ -509,6 +509,7 @@ function CompaniesPage({
   const [editId, setEditId] = useState<string | null>(null)
   const [editOut, setEditOut] = useState('')
   const [editRet, setEditRet] = useState('')
+  const [deleteError, setDeleteError] = useState<{ id: string; msg: string; details?: any } | null>(null)
 
   const addCompany = async () => {
     if (!name.trim()) return
@@ -531,11 +532,17 @@ function CompaniesPage({
   }
 
   const deleteCompany = async (id: string) => {
-    await fetch('/api/companies', {
+    setDeleteError(null)
+    const res = await fetch('/api/companies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete', id }),
     })
+    const data = await res.json()
+    if (!res.ok) {
+      setDeleteError({ id, msg: data.error, details: data.details })
+      return
+    }
     onRefresh()
   }
 
@@ -689,7 +696,11 @@ function CompaniesPage({
                           تعديل
                         </button>
                         <button
-                          onClick={() => deleteCompany(c.id)}
+                          onClick={() => {
+                            if (window.confirm('هل أنت متأكد من حذف ' + c.name + ' نهائياً؟')) {
+                              deleteCompany(c.id)
+                            }
+                          }}
                           style={dangerButton}
                         >
                           حذف
@@ -703,6 +714,17 @@ function CompaniesPage({
           </table>
         )}
       </div>
+
+      {deleteError && (
+        <div style={{ ...errorBox, marginTop: 16, borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <strong>⛔ {deleteError.msg}</strong>
+          {deleteError.details && (
+            <span style={{ fontSize: 13, opacity: 0.8 }}>
+              شحنات مرتبطة: {deleteError.details.salla_shipments} | فواتير مرتبطة: {deleteError.details.invoices}
+            </span>
+          )}
+        </div>
+      )}
 
       {deleted.length > 0 && (
         <div style={cardStyle}>
